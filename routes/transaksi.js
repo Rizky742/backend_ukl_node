@@ -6,8 +6,39 @@ const DetailTransaksi = models.tb_detail_transaksi
 const Paket = models.tb_paket
 const auth = require('../auth')
 
-app.get('/', auth, async (req, res) => {
+
+app.get('/test/:id', auth, async (req, res) => {
     await DetailTransaksi.findAll({
+        include: [
+            {
+                model: models.tb_transaksi,
+                where : {id_outlet : req.params.id},
+                include: [
+                    { model: models.tb_outlet },
+                    { model: models.tb_member },
+                    {
+                        model: models.tb_user,
+                        attributes: ['id', 'nama', 'username', 'id_outlet', 'role'],
+                        include: {
+                            model: models.tb_outlet
+                        }
+                    }
+                ]
+            },
+            { model: models.tb_paket },
+        ]
+    })
+        .then(result => {
+            res.json(result)
+        })
+        .catch(error => {
+            res.json(error)
+        })
+})
+
+app.get('/:id', auth, async (req, res) => {
+    await DetailTransaksi.findAll({
+        where: {id_transaksi : req.params.id},
         include: [
             {
                 model: models.tb_transaksi,
@@ -34,8 +65,67 @@ app.get('/', auth, async (req, res) => {
         })
 })
 
-app.get('/konfirmasi', auth, async (req, res) => {
+app.get('/konfirmasi/pembayaran', auth, async (req, res) => {
     await DetailTransaksi.findAll({
+        include: [
+            {
+                model: models.tb_transaksi,
+                where: { dibayar: "belum_dibayar" },
+                include: [
+                    { model: models.tb_outlet },
+                    { model: models.tb_member },
+                    {
+                        model: models.tb_user,
+                        attributes: ['id', 'nama', 'username', 'id_outlet', 'role'],
+                        include: {
+                            model: models.tb_outlet
+                        }
+                    }
+                ]
+            },
+            { model: models.tb_paket },
+        ]
+    })
+        .then(result => {
+            res.json(result)
+        })
+        .catch(error => {
+            res.json(error)
+        })
+})
+
+app.get('/konfirmasi/pembayaran/:search', auth, async (req, res) => {
+    await DetailTransaksi.findAll({
+        include: [
+            {
+                model: models.tb_transaksi,
+                where: { dibayar: "belum_dibayar" },
+                include: [
+                    { model: models.tb_outlet },
+                    { model: models.tb_member },
+                    {
+                        model: models.tb_user,
+                        attributes: ['id', 'nama', 'username', 'id_outlet', 'role'],
+                        include: {
+                            model: models.tb_outlet
+                        }
+                    }
+                ]
+            },
+            { model: models.tb_paket },
+        ]
+    })
+        .then(result => {
+            res.json(result)
+        })
+        .catch(error => {
+            res.json(error)
+        })
+})
+
+app.get('/konfirmasi/:id', auth, async (req, res) => {
+    await DetailTransaksi.findAll({
+        where: { id_transaksi: req.params.id },
         include: [
             {
                 model: models.tb_transaksi,
@@ -70,7 +160,7 @@ app.post('/', auth, async (req, res) => {
     batas_waktu.setDate(batas_waktu.getDate() + 7)
     let data = {
         id_outlet: req.body.id_outlet,
-        kode_invoice: invoice,
+        kode_invoice: req.body.invoice,
         id_member: req.body.id_member,
         tgl: Date.now(),
         batas_waktu: batas_waktu,
@@ -83,25 +173,31 @@ app.post('/', auth, async (req, res) => {
     }
     await Transaksi.create(data)
         .then(async (result) => {
-            let paket = await Paket.findByPk(req.body.id_paket)
-            let jumlah = req.body.qty
+            let paket = await Paket.findByPk(req.body.detail_transaksi[0].id_paket)
+            let jumlah = req.body.detail_transaksi[0].qty
             let harga = paket.harga
             let diskon = req.body.diskon
             let pajak = req.body.pajak
             let biaya_tambahan = req.body.biaya_tambahan
             let total = (jumlah * harga) - (diskon / 100 * harga * jumlah) + biaya_tambahan
             let total_harga = total + (pajak / 100 * total)
-            let data2 = {
-                id_transaksi: result.id,
-                id_paket: req.body.id_paket,
-                qty: req.body.qty,
-                keterangan: req.body.keterangan,
-                total_harga: total_harga
-            }
-            console.log(data2)
-            await DetailTransaksi.create(data2)
+            detail = req.body.detail_transaksi
+            detail.forEach(element => {
+                 element.id_transaksi = result.id,
+                 element.total_harga = total_harga
+            })
+            console.log(detail)
+            // let data2 = {
+
+            //     id_paket: req.body.id_paket,
+            //     qty: req.body.qty,
+            //     keterangan: req.body.keterangan,
+            //     total_harga: total_harga
+            // }
+            await DetailTransaksi.bulkCreate(detail)
                 .then(() => {
                     res.json({
+                        status: "success",
                         message: "Transaksi berhasil"
                     })
                 })
@@ -137,6 +233,7 @@ app.put('/bayar/:id_transaksi',auth,async (req, res) => {
                 Transaksi.update(data2, {where: {id : params}})
                 .then(() => {
                     res.json({
+                        status: "success",
                         message: "Pembayaran Berhasil"
                     })
                 })

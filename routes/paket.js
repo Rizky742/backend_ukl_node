@@ -3,10 +3,12 @@ const app = express();
 const models = require('../models/')
 const Paket = models.tb_paket
 const auth = require('../auth')
-app.get('/',auth,async(req, res) => {
+
+app.get('/test/:id',auth,async(req, res) => {
     await Paket.findAll({
          include: {
-             model : models.tb_outlet
+             model : models.tb_outlet,
+             where: {id : req.params.id}
          }
      })
          .then(result => {

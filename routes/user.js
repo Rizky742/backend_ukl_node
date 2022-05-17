@@ -44,12 +44,31 @@ app.get('/',auth,async (req, res) => {
         })
 })
 
+app.get('/:id',auth,async (req, res) => {
+    await User.findByPk(req.params.id,{
+        attributes: ['id', 'nama', 'username', 'id_outlet', 'role'],
+        include: {
+            model: models.tb_outlet
+        }
+    })
+        .then(result => {
+            res.json(result)
+        })
+        .catch(error => {
+            res.json(error)
+        })
+})
+
 app.put('/:id', auth, async (req, res) => {
     let params = { id: req.params.id };
+    let newPassword 
+    if(req.body.password) {
+        newPassword = await bcrypt.hash(req.body.password, 10)
+    }
     let data = {
         nama: req.body.nama,
         username: req.body.username,
-        password: req.body.password,
+        password: newPassword,
         id_outlet: req.body.id_outlet,
         role: req.body.role
     }
